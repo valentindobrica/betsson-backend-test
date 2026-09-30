@@ -10,7 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.5.0",
-        "laravel/framework": "^13.33.0",
+        "laravel/framework": "^13.34.0",
         "nunomaduro/essentials": "^1.2.0"
     },
     "require-dev": {
@@ -21,6 +21,7 @@
         "laravel/pail": "^1.2.7",
         "laravel/pao": "^1.1.5",
         "laravel/pint": "^1.32.1",
+        "laravel/sail": "^1.68",
         "laravel/tinker": "^3.0.2",
         "laravel/vet": "^0.2.1",
         "mockery/mockery": "^1.6.15",
