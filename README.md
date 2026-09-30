@@ -1,102 +1,130 @@
-- Blade (this project) version: **[github.com/nunomaduro/laravel-starter-kit](https://github.com/nunomaduro/laravel-starter-kit)**
-- Inertia & React version: **[github.com/nunomaduro/laravel-starter-kit-inertia-react](https://github.com/nunomaduro/laravel-starter-kit-inertia-react)**
-- Inertia & Vue version: **[github.com/nunomaduro/laravel-starter-kit-inertia-vue](https://github.com/nunomaduro/laravel-starter-kit-inertia-vue)**
+# Betsson Backend Test
 
+A Laravel 13 / PHP 8.5 API that manages customers, their wallets, deposits and withdrawals, and a settlement report — built as a backend take-home test.
 
-<p align="center">
-    <a href="https://youtu.be/VhzP0XWGTC4" target="_blank">
-        <img src="/art/banner.png" alt="Overview Laravel Starter Kit" style="width:70%;">
-    </a>
-</p>
+Application data access goes through raw PDO statements (no Eloquent/query builder), with row-level locking (`SELECT ... FOR UPDATE`) used to make webhook and job processing idempotent under concurrent calls. `Illuminate\Database\ConnectionInterface` is used purely for transaction demarcation.
 
-<p>
-    <a href="https://github.com/nunomaduro/laravel-starter-kit/actions"><img src="https://github.com/nunomaduro/laravel-starter-kit/actions/workflows/tests.yml/badge.svg" alt="Build Status"></a>
-    <a href="https://packagist.org/packages/nunomaduro/laravel-starter-kit"><img src="https://img.shields.io/packagist/dt/nunomaduro/laravel-starter-kit" alt="Total Downloads"></a>
-    <a href="https://packagist.org/packages/nunomaduro/laravel-starter-kit"><img src="https://img.shields.io/packagist/v/nunomaduro/laravel-starter-kit" alt="Latest Stable Version"></a>
-    <a href="https://packagist.org/packages/nunomaduro/laravel-starter-kit"><img src="https://img.shields.io/packagist/l/nunomaduro/laravel-starter-kit" alt="License"></a>
-    <a href="https://youtube.com/@nunomaduro?sub_confirmation=1"><img alt="YouTube Channel Subscribers" src="https://img.shields.io/youtube/channel/subscribers/UCO_hYZF2gb_CyG5sA7ArlGg?style=flat&label=youtube&color=brightgreen"></a>
-</p>
+## Requirements
 
-**Laravel Starter Kit** is an ultra-strict, type-safe [Laravel](https://laravel.com) skeleton engineered for developers who refuse to compromise on code quality. This opinionated starter kit enforces rigorous development standards through meticulous tooling configuration and architectural decisions that prioritize type safety, immutability, and fail-fast principles.
-
-## Why This Starter Kit?
-
-Modern PHP has evolved into a mature, type-safe language, yet many Laravel projects still operate with loose conventions and optional typing. This starter kit changes that paradigm by enforcing:
-
-- **100% Type Coverage**: Every method, property, and parameter is explicitly typed
-- **Zero Tolerance for Code Smells**: Rector and PHPStan at maximum strictness catch issues before they become bugs
-- **Immutable-First Architecture**: Data structures favor immutability to prevent unexpected mutations
-- **Fail-Fast Philosophy**: Errors are caught at compile-time, not runtime
-- **Automated Code Quality**: Pre-configured tools ensure consistent, pristine code across your entire team
-- **Bun-Powered**: Leveraging Bun for blazing-fast dependency management...
-- **Just Better Laravel Defaults**: Thanks to **[Essentials](https://github.com/nunomaduro/essentials)** / strict models, auto eager loading, immutable dates, and more...
-
-This isn't just another Laravel boilerplate—it's a statement that PHP applications can and should be built with the same rigor as strongly-typed languages like Rust or TypeScript.
+- [Docker](https://www.docker.com/) (used to run [Laravel Sail](https://laravel.com/docs/sail): PHP 8.5, MySQL 8.4, Redis)
+- Composer (only needed on the host to run `composer install` before Sail exists; if you don't have PHP/Composer locally, see the "No local PHP" note below)
 
 ## Getting Started
 
-> **Requires [PHP 8.4+](https://php.net/releases/)**, [Bun](https://bun.sh) and a code coverage driver like [xdebug](https://xdebug.org/docs/install)**.
+1. Clone the repository and move into it:
 
-Create your type-safe Laravel application using [Composer](https://getcomposer.org):
+   ```bash
+   git clone <repository-url> betsson-backend-test
+   cd betsson-backend-test
+   ```
+
+2. Install PHP dependencies:
+
+   ```bash
+   composer install
+   ```
+
+   **No local PHP?** Use a throwaway container instead:
+
+   ```bash
+   docker run --rm \
+       -u "$(id -u):$(id -g)" \
+       -v "$(pwd):/var/www/html" \
+       -w /var/www/html \
+       laravelsail/php85-composer:latest \
+       composer install --ignore-platform-reqs
+   ```
+
+3. Copy the environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Point it at the services Sail's `compose.yaml` provides (the defaults are SQLite; the locking/concurrency design here is MySQL-specific, so use MySQL):
+
+   ```dotenv
+   DB_CONNECTION=mysql
+   DB_HOST=mysql
+   DB_PORT=3306
+   DB_DATABASE=laravel
+   DB_USERNAME=sail
+   DB_PASSWORD=password
+   ```
+
+5. Start the containers:
+
+   ```bash
+   ./vendor/bin/sail up -d
+   ```
+
+6. Generate the app key and run migrations:
+
+   ```bash
+   ./vendor/bin/sail artisan key:generate
+   ./vendor/bin/sail artisan migrate
+   ```
+
+7. (Optional) Seed sample data — 50 customers, each with approved deposits and withdrawals:
+
+   ```bash
+   ./vendor/bin/sail artisan db:seed
+   ```
+
+The API is now available at `http://localhost/api/v1`.
+
+### Running the scheduler and queue
+
+Withdrawals move from `Pending` to `Approved` via a scheduled command plus a queued job, not synchronously. In development, run:
 
 ```bash
-composer create-project nunomaduro/laravel-starter-kit --prefer-dist example-app
+./vendor/bin/sail composer dev
 ```
 
-### Initial Setup
+This starts the app server, queue worker, scheduler (`schedule:work`), log tailing (Pail), and Vite together. Without it, `withdrawals:process-pending` (which runs every 5 minutes, see `routes/console.php`) and its `ProcessWithdrawalJob` jobs won't actually fire.
 
-Navigate to your project and complete the setup:
+## Running Tests
 
 ```bash
-cd example-app
-
-# Setup project
-composer setup
-
-# Record the packages you trust with Laravel Vet
-./vendor/bin/vet --init
-
-# Start the development server
-composer dev
+./vendor/bin/sail composer test
 ```
 
-### Optional: Browser Testing Setup
+This runs, in order: Pint + Rector (`test:lint`), PHPStan at max strictness (`test:types`), 100% type coverage (`test:type-coverage`), and the full Pest suite with a 100% line-coverage gate (`test:unit`).
 
-If you plan to use Pest's browser testing capabilities:
+Individual steps:
 
 ```bash
-bun add playwright
-bunx playwright install
+./vendor/bin/sail composer test:unit           # Pest, Unit + Feature + Browser, 100% coverage required
+./vendor/bin/sail composer test:types          # PHPStan (Larastan)
+./vendor/bin/sail composer test:type-coverage  # Pest type coverage
+./vendor/bin/sail pint                         # Fix code style
 ```
 
-### Verify Installation
-
-Run the test suite to ensure everything is configured correctly:
+A separate suite proves row-locking is safe under real concurrent processes (via `pcntl_fork`). It's excluded from `composer test` because forking inside a live test-runner TUI can corrupt the terminal, so it's run on its own:
 
 ```bash
-composer test
+./vendor/bin/sail composer test:concurrency
 ```
 
-You should see 100% test coverage and all quality checks passing.
+## API Overview
 
-## Available Tooling
+All routes are prefixed with `/api/v1`.
 
-### Development
-- `composer dev` - Starts Laravel server, queue worker, log monitoring, and Vite+ dev server concurrently
+| Method | URI | Description |
+|---|---|---|
+| POST | `/customers` | Create a customer (also creates their wallet) |
+| GET | `/customers/{customer}` | Show a customer |
+| PUT/PATCH | `/customers/{customer}` | Update a customer |
+| GET | `/customers/{customer}/deposits` | List a customer's deposits |
+| POST | `/customers/{customer}/deposits` | Create a pending deposit |
+| POST | `/deposits/{deposit}/webhook` | Payment gateway webhook — approves/disapproves a deposit (idempotent) |
+| GET | `/customers/{customer}/withdrawals` | List a customer's withdrawals |
+| POST | `/customers/{customer}/withdrawals` | Create a withdrawal (reserves the balance immediately) |
+| GET | `/reports/deposits-withdrawals` | Paginated report of approved deposits/withdrawals, grouped by settlement date and country |
 
-### Code Quality
-- `composer lint` - Runs Rector (refactoring), Pint (PHP formatting), and Oxfmt (JS/TS formatting)
-- `composer test:lint` - Dry-run mode for CI/CD pipelines
+## Tech Stack
 
-### Testing
-- `composer test:type-coverage` - Ensures 100% type coverage with Pest
-- `composer test:types` - Runs PHPStan at level 9 (maximum strictness)
-- `composer test:unit` - Runs Pest tests with 100% code coverage requirement
-- `composer test` - Runs the complete test suite (linting, static analysis, type coverage, unit tests)
-
-### Maintenance
-- `composer update:requirements` - Updates all PHP and Bun dependencies to latest versions
-
-## License
-
-**Laravel Starter Kit** was created by **[Nuno Maduro](https://x.com/enunomaduro)** under the **[MIT license](https://opensource.org/licenses/MIT)**.
+- PHP 8.5, Laravel 13
+- MySQL 8.4 (via Sail), Redis
+- Pest 5 (+ type coverage plugin), Larastan 3, Pint, Rector
+- GitHub Actions CI (mirrors the local Sail/MySQL setup)
