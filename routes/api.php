@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\CustomerDepositController;
+use App\Http\Controllers\Api\V1\DepositWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('v1.')->group(function (): void {
@@ -11,4 +13,11 @@ Route::prefix('v1')->name('v1.')->group(function (): void {
         'show',
         'update',
     ]);
+
+    Route::apiResource('customers.deposits', CustomerDepositController::class)->only([
+        'index',
+        'store',
+    ]);
+
+    Route::post('deposits/{deposit}/webhook', DepositWebhookController::class)->name('deposits.webhook');
 });

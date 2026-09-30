@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Concerns\CastsDatabaseRowValues;
 use App\Enums\Gender;
 use Carbon\CarbonImmutable;
-use UnexpectedValueException;
 
 /**
  * Plain data object representing a `customers` row.
@@ -17,6 +17,8 @@ use UnexpectedValueException;
  */
 final readonly class Customer
 {
+    use CastsDatabaseRowValues;
+
     public function __construct(
         public int $id,
         public Gender $gender,
@@ -45,23 +47,5 @@ final readonly class Customer
             createdAt: CarbonImmutable::parse(self::toString($row['created_at'])),
             updatedAt: CarbonImmutable::parse(self::toString($row['updated_at'])),
         );
-    }
-
-    private static function toInt(mixed $value): int
-    {
-        if (is_int($value) || is_string($value)) {
-            return (int) $value;
-        }
-
-        throw new UnexpectedValueException('Expected an int or string value from the database.');
-    }
-
-    private static function toString(mixed $value): string
-    {
-        if (is_string($value)) {
-            return $value;
-        }
-
-        throw new UnexpectedValueException('Expected a string value from the database.');
     }
 }

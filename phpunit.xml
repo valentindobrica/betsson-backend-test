@@ -15,6 +15,14 @@
             <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
+    <!--
+        tests/Concurrency is intentionally NOT registered as a testsuite here.
+        It forks real OS processes (pcntl_fork) that inherit this terminal's
+        file descriptors; mixed into the same run as everything else, a forked
+        child can write/exit while Pest's live TUI is mid-redraw and corrupt
+        or hang the terminal. Run it deliberately via `composer test:concurrency`
+        (`pest tests/Concurrency`), never via a bare `artisan test`/`pest`.
+    -->
     <source>
         <include>
             <directory>app</directory>
