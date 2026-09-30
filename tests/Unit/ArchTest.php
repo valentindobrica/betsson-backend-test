@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Customer;
 use App\Models\Deposit;
+use App\Models\DepositWithdrawalReportRow;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
 
@@ -15,6 +16,7 @@ arch()->preset()->laravel()->ignoring([
     Wallet::class,
     Deposit::class,
     Withdrawal::class,
+    DepositWithdrawalReportRow::class,
 ]);
 arch()->preset()->security()->ignoring([
     'assert',

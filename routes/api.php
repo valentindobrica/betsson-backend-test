@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\CustomerDepositController;
 use App\Http\Controllers\Api\V1\CustomerWithdrawalController;
 use App\Http\Controllers\Api\V1\DepositWebhookController;
+use App\Http\Controllers\Api\V1\DepositWithdrawalReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('v1.')->group(function (): void {
@@ -26,4 +27,6 @@ Route::prefix('v1')->name('v1.')->group(function (): void {
     ]);
 
     Route::post('deposits/{deposit}/webhook', DepositWebhookController::class)->name('deposits.webhook');
+
+    Route::get('reports/deposits-withdrawals', DepositWithdrawalReportController::class)->name('reports.deposits-withdrawals');
 });
