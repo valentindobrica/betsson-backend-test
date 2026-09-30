@@ -11,6 +11,7 @@ use App\Services\DepositService;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\DatabaseManager;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use PDO;
@@ -38,6 +39,12 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Without this, `composer run dev` starts serve/queue:listen/pail/vite but
+        // never the scheduler, so anything registered in routes/console.php via
+        // Schedule::* (e.g. withdrawals:process-pending) is registered but never
+        // actually triggered in local development.
+        DevCommands::artisan('schedule:work', 'schedule');
+
         Route::bind('customer', function (string $value): Customer {
             throw_unless(ctype_digit($value), NotFoundHttpException::class);
 
