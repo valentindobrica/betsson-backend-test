@@ -122,6 +122,49 @@ All routes are prefixed with `/api/v1`.
 | POST | `/customers/{customer}/withdrawals` | Create a withdrawal (reserves the balance immediately) |
 | GET | `/reports/deposits-withdrawals` | Paginated report of approved deposits/withdrawals, grouped by settlement date and country |
 
+## Withdrawal Processing Flow
+
+Withdrawals are processed asynchronously. A customer's request is accepted immediately, but the payout itself is carried out later by a scheduled command and a queued job, and only once the withdrawal has cleared an approval gate represented by the `pre_approved` flag.
+
+### Lifecycle
+
+1. **Request (`Pending`)** — The customer submits a withdrawal via `POST /customers/{customer}/withdrawals`. The wallet row is locked, the balance is checked, and the amount is **reserved (debited) immediately**, so the balance can never go below zero and the same funds cannot be withdrawn twice. The withdrawal is stored as `Pending` with `pre_approved = 0`.
+2. **Approval gate (`pre_approved = 1`)** — A withdrawal is only eligible for payout once it has been pre-approved. This is the point where the business decides whether the request is safe to pay out (see *Approval Paths* below).
+3. **Pickup (`InProgress`)** — The `withdrawals:process-pending` command runs every 5 minutes, moves eligible withdrawals to `InProgress`, and dispatches one `ProcessWithdrawalJob` per withdrawal.
+4. **Processing (`Approved` / `Disapproved`)** — The job finalizes the withdrawal (in a real system, this is where the payment provider would be called) and records `processed_at`. Approved withdrawals then appear in the settlement report.
+5. **Cancellation (`Cancelled`)** — Before processing, a withdrawal may be cancelled by the customer or by an operator, in which case the reserved amount is returned to the wallet.
+
+```mermaid
+flowchart LR
+    A[Customer requests withdrawal] --> B[Pending<br/>funds reserved]
+    B --> C{Eligible for<br/>auto-approval?}
+    C -- Yes --> D[pre_approved = 1]
+    C -- No --> E[Manual review<br/>Finance / Risk]
+    E -- Approved --> D
+    E -- Rejected --> F[Disapproved / Cancelled<br/>funds returned]
+    D --> G[Scheduled command<br/>→ InProgress]
+    G --> H[ProcessWithdrawalJob]
+    H --> I[Approved]
+    H --> F
+```
+
+### Approval Paths
+
+In a production system, `pre_approved` is the single switch that separates "requested" from "cleared for payout". It can be set in two ways:
+
+- **Automatic approval** — The customer meets the criteria for straight-through processing: their KYC documents have been submitted and verified, their profile is validated, and the request falls within configured limits (e.g. amount thresholds, withdrawal frequency, no open risk or AML flags). These withdrawals are pre-approved without human involvement and are paid out on the next scheduler run.
+- **Manual approval** — Any withdrawal that does not qualify for automatic approval (unverified account, missing documents, large amount, unusual activity, first withdrawal to a new payment method, etc.) stays `Pending` until a member of the Finance/Risk department reviews it. The reviewer either pre-approves it, releasing it to the automated pipeline, or rejects it, returning the reserved funds to the customer.
+
+In both cases the actual payout remains fully automated: the command and job only ever act on withdrawals that have already been pre-approved, which keeps the decision ("should we pay this?") cleanly separated from the execution ("pay it").
+
+> **Note on this implementation:** to keep the scope of the test focused, there is no eligibility engine, back-office approval endpoint, or cancellation endpoint. The scheduled command currently treats every `Pending` withdrawal as eligible and sets `pre_approved = 1` itself, and the job always finalizes to `Approved`. Introducing the approval paths above would mean restricting the command to rows where `pre_approved = 1`, and setting that flag from an eligibility check at creation time or from a Finance approval action.
+
+### Reliability Guarantees
+
+- **No double spending** — The wallet row is locked (`SELECT ... FOR UPDATE`) while the balance is checked and debited.
+- **No duplicate processing** — `ProcessWithdrawalJob` implements `ShouldBeUnique`, and `WithdrawalService::approve()` locks the withdrawal row and re-checks its status and `pre_approved` flag, so a retried or duplicated job is a no-op.
+- **Retries** — The job is retried up to 3 times with a 60-second backoff on transient failures.
+
 ## Tech Stack
 
 - PHP 8.5, Laravel 13
