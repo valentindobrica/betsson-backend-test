@@ -43,8 +43,8 @@ final readonly class Deposit
             id: self::toInt($row['id']),
             customerId: self::toInt($row['customer_id']),
             status: DepositStatus::from(self::toInt($row['status_id'])),
-            amountCents: Money::toCents(self::toString($row['amount'])),
-            bonusAmountCents: Money::toCents(self::toString($row['bonus_amount'])),
+            amountCents: Money::toCents(self::toNumeric($row['amount'])),
+            bonusAmountCents: Money::toCents(self::toNumeric($row['bonus_amount'])),
             depositNumber: self::toNullableInt($row['deposit_number']),
             balanceAfterCents: self::toNullableCents($row['balance_after']),
             bonusBalanceAfterCents: self::toNullableCents($row['bonus_balance_after']),
@@ -56,6 +56,6 @@ final readonly class Deposit
 
     private static function toNullableCents(mixed $value): ?int
     {
-        return $value === null ? null : Money::toCents(self::toString($value));
+        return $value === null ? null : Money::toCents(self::toNumeric($value));
     }
 }

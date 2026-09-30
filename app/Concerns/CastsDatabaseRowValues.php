@@ -41,6 +41,23 @@ trait CastsDatabaseRowValues
         return $value === null ? null : self::toString($value);
     }
 
+    /**
+     * For decimal/numeric database columns specifically (money amounts):
+     * MySQL's PDO driver always returns these as strings, but SQLite gives
+     * back a native int or float instead, depending on the value's type
+     * affinity. {@see \App\Services\Money::toCents()} already accepts all
+     * three, so this narrows to exactly what it needs instead of forcing
+     * the value through the string-only toString() and breaking on SQLite.
+     */
+    private static function toNumeric(mixed $value): float|int|string
+    {
+        if (is_int($value) || is_float($value) || is_string($value)) {
+            return $value;
+        }
+
+        throw new UnexpectedValueException('Expected a numeric or string value from the database.');
+    }
+
     private static function toBool(mixed $value): bool
     {
         if (is_bool($value) || is_int($value) || is_string($value)) {

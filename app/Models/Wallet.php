@@ -34,8 +34,8 @@ final readonly class Wallet
     {
         return new self(
             customerId: self::toInt($row['customer_id']),
-            balanceCents: Money::toCents(self::toString($row['balance'])),
-            bonusBalanceCents: Money::toCents(self::toString($row['bonus_balance'])),
+            balanceCents: Money::toCents(self::toNumeric($row['balance'])),
+            bonusBalanceCents: Money::toCents(self::toNumeric($row['bonus_balance'])),
             approvedDepositCount: self::toInt($row['approved_deposit_count']),
             createdAt: CarbonImmutable::parse(self::toString($row['created_at'])),
             updatedAt: CarbonImmutable::parse(self::toString($row['updated_at'])),

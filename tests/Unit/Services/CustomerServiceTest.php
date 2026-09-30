@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\Gender;
 use App\Models\Customer;
 use App\Services\CustomerService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 function customerService(): CustomerService
@@ -125,7 +126,10 @@ it('rethrows database errors unrelated to email uniqueness', function (): void {
         email: str_repeat('a', 250).'@example.com',
         bonusPercentage: 5,
     ))->toThrow(PDOException::class);
-});
+})->skip(
+    fn (): bool => DB::getDriverName() !== 'mysql',
+    'SQLite has no fixed-width string types and never enforces a column length limit, unlike MySQL strict mode.',
+);
 
 it('reports whether an email already exists', function (): void {
     $customer = customerService()->create(
