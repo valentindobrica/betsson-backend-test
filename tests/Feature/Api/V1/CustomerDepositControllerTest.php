@@ -158,3 +158,12 @@ it('rejects listing deposits with an invalid per_page', function (): void {
 
     $response->assertStatus(422)->assertJsonValidationErrors(['per_page']);
 });
+
+it('does not mix deposits into a withdrawal listing', function (): void {
+    $customer = createFundedCustomer();
+    $this->postJson("/api/v1/customers/{$customer->id}/deposits", ['amount' => 100]);
+
+    $response = $this->getJson("/api/v1/customers/{$customer->id}/withdrawals");
+
+    $response->assertOk()->assertJsonCount(0, 'data');
+});

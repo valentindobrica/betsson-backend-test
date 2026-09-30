@@ -41,6 +41,15 @@ trait CastsDatabaseRowValues
         return $value === null ? null : self::toString($value);
     }
 
+    private static function toBool(mixed $value): bool
+    {
+        if (is_bool($value) || is_int($value) || is_string($value)) {
+            return (bool) $value;
+        }
+
+        throw new UnexpectedValueException('Expected a bool, int, or string value from the database.');
+    }
+
     private static function toNullableDateTime(mixed $value): ?CarbonImmutable
     {
         $string = self::toNullableString($value);
